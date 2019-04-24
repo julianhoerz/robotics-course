@@ -338,14 +338,14 @@ int main(int argc,char **argv){
 
   //minimal_use();
 
-  spline_use();
+  //spline_use();
 
   //graspObject();
 
   //graspObject1();
 
 
-  //graspObject2();
+  graspObject2();
 
   return 0;
 }
