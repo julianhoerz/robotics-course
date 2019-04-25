@@ -8,6 +8,7 @@ void minimal_use(){
 
   Var<byteA> rgb;
   Var<floatA> depth;
+  
 
 #if 0 //using ros
   RosCom ROS;
