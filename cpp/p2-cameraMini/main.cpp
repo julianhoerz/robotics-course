@@ -21,6 +21,7 @@ void minimal_use(){
 
 #if 1 //using ros
   RosCom ROS;
+  
   SubscriberConv<sensor_msgs::Image, byteA, &conv_image2byteA> subRgb(rgb, "/camera/rgb/image_rect_color");
 //  SubscriberConv<sensor_msgs::Image, floatA, &conv_imageu162floatA> subDepth(depth, "/camera/depth_registered/image_raw");
 #else //using a webcam
