@@ -63,6 +63,7 @@ void minimal_use(){
         }
       }
       cv::Mat res;
+      cout << buff_image.shape
       cv::bitwise_and(buff_image,red_hue_image,res);
 
 
