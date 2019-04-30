@@ -220,8 +220,8 @@ void graspObject2(){
   W.setDiag(w,n);
 
   RobotOperation B(K);
-  //q = B.getJointPositions();
-  q = q_home;
+  q = B.getJointPositions();
+  //q = q_home;
   //q = q*0.;
   //B.move({q},{4.});
   //B.wait();
@@ -302,7 +302,7 @@ void graspObject2(){
 
   // Closing Gripper
   q(-1)=0.;
-  B.move({q},{3.});
+  B.move({q},{5.});
   B.wait();
 
 
