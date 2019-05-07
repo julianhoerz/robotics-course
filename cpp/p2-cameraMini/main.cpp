@@ -23,20 +23,19 @@ void minimal_use(){
 
   int cnt = 0;
   
-/*
+
   #if 0 //using ros
-    RosCom ROS;
-    SubscriberConv<sensor_msgs::Image, byteA, &conv_image2byteA> subRgb(rgb, "/camera/rgb/image_rect_color");
-  //  SubscriberConv<sensor_msgs::Image, floatA, &conv_imageu162floatA> subDepth(depth, "/camera/depth_registered/image_raw");
+    RosCamera cam(_rgb, _depth, "cameraRosNodeJulian", "/camera/rgb/image_rect_color", "/camera/depth_registered/image_raw");
   #else //using a webcam
-    OpencvCamera cam(rgb);
+    OpencvCamera cam(_rgb);
   #endif
 
   //looping images through opencv
   for(int i=0;i>-1;i++){
-    cv::Mat img = CV(rgb.get());
+    cv::Mat img = CV(_rgb.get());
+    //cv::Mat depth = CV(_depth.get());
     if(img.total()>0){
-      cv::medianBlur(img, img, 3);
+      cv::medianBlur(img, img, 11);
       cv::Mat hsv_image;
       cv::cvtColor(img, hsv_image, cv::COLOR_BGR2HSV);
       cv::Mat orig_image = img.clone();
@@ -106,17 +105,14 @@ void minimal_use(){
       cv::imshow("red_hue_image", red_hue_image);
       cv::imshow("RGB", orig_image);
       cv::imshow("AND", buff_image);
+      //cv::imshow("depth", 0.5*depth); //white=2meters
       //cv::imshow("Mask: ", mymask);
       //cv::imshow("Mask2: ", buff2_image);
 
 
-      cv::waitKey(1);*/
-#if 1 //using ros
-  RosCamera cam(_rgb, _depth, "cameraRosNodeJulian", "/camera/rgb/image_rect_color", "/camera/depth_registered/image_raw");
-#else //using a webcam
-  OpencvCamera cam(_rgb);
-#endif
-
+      cv::waitKey(1);
+    }
+/*
   //looping images through opencv
   for(uint i=0;i<100;i++){
     _rgb.waitForNextRevision();
@@ -130,12 +126,138 @@ void minimal_use(){
         cv::waitKey(1);
       }
     }
+  }*/
   }
 }
+
+
+std::vector<cv::Point> findBiggestContourArea(std::vector<std::vector<cv::Point> > contours){
+  std::vector<cv::Point> c = *std::max_element(contours.begin(),
+                    contours.end(),
+                    [](std::vector<cv::Point> const& lhs, std::vector<cv::Point> const& rhs)
+  {
+      return contourArea(lhs, false) < contourArea(rhs, false);
+  });
+  return c;
+}
+
+cv::Mat selectColor(cv::Mat hsv_image, int selector){
+  cv::Mat final_img;
+  switch (selector)
+  {
+  case 0: //Blue
+    cv::inRange(hsv_image, cv::Scalar(80, 100, 100), cv::Scalar(120, 255, 255), final_img);
+    break;
+  
+  default: //Red
+    cv::Mat lower_red_hue_range;
+    cv::Mat upper_red_hue_range;
+    cv::inRange(hsv_image, cv::Scalar(0, 100, 100), cv::Scalar(10, 255, 255), lower_red_hue_range);
+    cv::inRange(hsv_image, cv::Scalar(160, 100, 100), cv::Scalar(179, 255, 255), upper_red_hue_range);
+    cv::addWeighted(lower_red_hue_range, 1.0, upper_red_hue_range, 1.0, 0.0, final_img);
+    break;
+  }
+
+  return final_img;
+}
+
+
+
+
+
+
+cv::Point2f detectionProcess(cv::Mat img){
+  cv::Mat contour_img = img.clone();
+
+  // Transforming to hsv image
+  cv::Mat blurred_img, hsv_image;
+  cv::GaussianBlur(img, blurred_img, cv::Size(11, 11), 0, 0);
+  cv::cvtColor(blurred_img, hsv_image, cv::COLOR_BGR2HSV);
+
+  // Select red parts of the image
+  cv::Mat hue_image;
+  hue_image = selectColor(hsv_image,1);
+  cv::imshow("Color selected image", hue_image);
+
+  // Erosion and Dilation to delete small circles
+  cv::Mat img_final = hue_image;
+  cv::erode(img_final, img_final, cv::Mat(), cv::Point(-1, -1), 2, 1, 1);
+  cv::dilate(img_final, img_final, cv::Mat(), cv::Point(-1, -1), 2, 1, 1);
+
+
+  // Find contours
+  std::vector<std::vector<cv::Point> > contours;
+  cv::findContours(img_final,contours,CV_RETR_EXTERNAL,CV_CHAIN_APPROX_SIMPLE);
+  cv::Point2f center(-1.0,-1.0);
+  if(contours.size() > 0){
+    std::vector<cv::Point> c;
+    c = findBiggestContourArea(contours);
+    float radius;
+    cv::minEnclosingCircle(c,center,radius);
+    cv::circle(contour_img, center, radius, cv::Scalar(0, 255, 0), 3);
+  }
+  else{
+    cout << "No contours found..." << endl;
+  }
+
+  cv::imshow("circles", contour_img);
+  return center;
+}
+
+
+
+void ball_tracking(){
+  Var<byteA> _rgb;
+  Var<floatA> _depth;
+
+  #if 0 //using ros
+    RosCamera cam(_rgb, _depth, "cameraRosNodeJulian", "/camera/rgb/image_rect_color", "/camera/depth_registered/image_raw");
+  #else //using a webcam
+    OpencvCamera cam(_rgb);
+  #endif
+
+  //looping images through opencv
+  for(int i=0;i>-1;i++){
+    cv::Mat img = CV(_rgb.get());
+    if(img.total()<=0){
+      continue;
+    }
+
+    detectionProcess(img);
+    
+
+    cv::waitKey(1);
+  }
+}
+
+
+float medianCircle(cv::Mat depth,cv::Point2f point,float radius){
+  //create mask (black background)
+  /*cv::Mat mask(cv::Size(radius*2,radius*2), CV_8U, cv::Scalar(0));
+  cv::circle(mask, cv::Point(radius,radius), radius, cv::Scalar(255), -1);
+
+  //extract region from depthimage
+  cv::Rect region(center.x-radius,center.y-radius,radius*2,radius*2);
+  cv::Mat roi(depth, region);
+
+  cv::Mat buff2_image;
+  //
+  cv::bitwise_and(roi, roi, buff2_image, mask);
+  cout << "Typical mean: " << cv::mean(mask)[0] - cv::mean(buff2_image)[0] << endl;*/
+  return 0.1f;
+
+}
+
+
+
+
+
+
 
 void get_objects_into_configuration(){
   Var<byteA> _rgb;
   Var<floatA> _depth;
+
 
   RosCamera cam(_rgb, _depth, "cameraRosNodeJulian", "/camera/rgb/image_rect_color", "/camera/depth_registered/image_raw");
 
@@ -147,9 +269,13 @@ void get_objects_into_configuration(){
   C.addFile("model.g");
   C.setJointState(B.get_q());
 
+
   rai::Frame *pcl = C.addFrame("pcl", "camera");
+  rai::Frame *marker = C.addFrame("marker", "camera");
+  cv::Point2f point;
   for(uint i=0;i<10000;i++){
     _rgb.waitForNextRevision();
+
 
     if(d2p.points.get()->N>0){
       C.gl().dataLock.lock(RAI_HERE);
@@ -163,6 +289,24 @@ void get_objects_into_configuration(){
       cv::Mat depth = CV(_depth.get());
 
       if(rgb.total()>0 && depth.total()>0){
+        point = detectionProcess(rgb);
+        cv::Vec3b bgrPixel = depth.at<cv::Vec3b>(point.x, point.y);
+
+        //float d = medianCircle(depth,point,radius);
+
+        //cout << depth.size() << endl;
+        /*float d = depth.at(point);
+        float p_x = rgb.cols / 2.0;
+        float p_y = rgb.rows / 2.0;
+        float f_x = 600.f;
+        float f_y = 600.f;
+        point.x;
+        float x_new = d*(point.x - p_x)/f_x;
+        float y_new = -d*(point.y - p_y)/f_y;
+        float z_new = -d;
+        C.gl().dataLock.lock(RAI_HERE);
+        marker->setPosition({x_new,y_new,z_new});
+        C.gl().dataLock.unlock();*/
         cv::imshow("rgb", rgb); //white=2meters
         cv::imshow("depth", 0.5*depth); //white=2meters
         cv::waitKey(1);
@@ -177,8 +321,9 @@ void get_objects_into_configuration(){
 int main(int argc,char **argv){
   rai::initCmdLine(argc,argv);
 
-//  minimal_use();
-    get_objects_into_configuration();
+  //minimal_use();
+  //ball_tracking();
+  get_objects_into_configuration();
 
   return 0;
 }
