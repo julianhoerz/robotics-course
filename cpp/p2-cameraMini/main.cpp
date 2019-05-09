@@ -20,43 +20,19 @@
 #include <Kin/frame.h>
 #include <Gui/opengl.h>
 #include <RosCom/baxter.h>
+#ifndef CIRCLE
+    #include "Circle.cpp"
+    #define CIRCLE
+#endif
 #include "RobotVision.cpp"
-#include "FollowObject.cpp"
-#include "Circle.cpp"
+#include "RobotKinematics.cpp"
 
 
 
 
 
-void ball_tracking(){
-  Var<byteA> _rgb;
-  Var<floatA> _depth;
 
-  #if 0 //using ros
-    RosCamera cam(_rgb, _depth, "cameraRosNodeJulian", "/camera/rgb/image_rect_color", "/camera/depth_registered/image_raw");
-  #else //using a webcam
-    OpencvCamera cam(_rgb);
-  #endif
-
-  RobotVision vision;
-
-  //looping images through opencv
-  for(int i=0;i>-1;i++){
-    cv::Mat img = CV(_rgb.get());
-    if(img.total()<=0){
-      continue;
-    }
-
-    vision.detectionProcess(img);
-  
-    cv::waitKey(1);
-  }
-}
-
-
-
-
-void get_objects_into_configuration(){
+void followObjectProcess(){
   Var<byteA> _rgb;
   Var<floatA> _depth;
 
@@ -74,6 +50,9 @@ void get_objects_into_configuration(){
 
   rai::KinematicWorld C;
   C.addFile("model.g");
+
+
+  RobotKinematics kinematics(&C,&B);
 
   //followObject test(C,&B);
 
@@ -140,8 +119,7 @@ void get_objects_into_configuration(){
 int main(int argc,char **argv){
   rai::initCmdLine(argc,argv);
 
-  //ball_tracking();
-  get_objects_into_configuration();
+  followObjectProcess();
 
   return 0;
 }

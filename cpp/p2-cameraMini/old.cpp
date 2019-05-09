@@ -118,3 +118,47 @@ void minimal_use(){
   }
   }
 }*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+void ball_tracking(){
+  Var<byteA> _rgb;
+  Var<floatA> _depth;
+
+  #if 0 //using ros
+    RosCamera cam(_rgb, _depth, "cameraRosNodeJulian", "/camera/rgb/image_rect_color", "/camera/depth_registered/image_raw");
+  #else //using a webcam
+    OpencvCamera cam(_rgb);
+  #endif
+
+  RobotVision vision;
+
+  //looping images through opencv
+  for(int i=0;i>-1;i++){
+    cv::Mat img = CV(_rgb.get());
+    if(img.total()<=0){
+      continue;
+    }
+
+    vision.detectionProcess(img);
+  
+    cv::waitKey(1);
+  }
+}
+
+
+
+*/

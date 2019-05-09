@@ -1,19 +1,21 @@
-/*#include <Kin/kin.h>
-#include <RosCom/baxter.h>
-#include <Operate/robotOperation.h>*/
+//#include <Kin/kin.h>
+//#include <RosCom/baxter.h>
+//#include <Operate/robotOperation.h>
 
 
 
 
 
-class followObject{
+class RobotKinematics{
 
     private: 
     rai::KinematicWorld *K;
     BaxterInterface *B;
     arr q_home;
 
-    followObject(rai::KinematicWorld *k, BaxterInterface *b){
+    public:
+
+    RobotKinematics(rai::KinematicWorld *k, BaxterInterface *b){
         K = k;
         B = b;
     }

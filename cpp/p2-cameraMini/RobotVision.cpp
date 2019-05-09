@@ -23,7 +23,10 @@
 #include <Kin/frame.h>
 #include <Gui/opengl.h>
 #include <RosCom/baxter.h>*/
-
+#ifndef CIRCLE
+    #include "Circle.cpp"
+    #define CIRCLE
+#endif
 
 
 
