@@ -40,7 +40,7 @@ void followObjectProcess(){
 
   RosCamera cam(_rgb, _depth, "cameraRosNodeJulian", "/camera/rgb/image_rect_color", "/camera/depth_registered/image_raw");
 
-  double f = 1./tan(0.5*62.8*RAI_PI/180.);
+  double f = 1./tan(0.5*60.8*RAI_PI/180.);
   f *= 320.;
   arr Fxypxy = {f, f, 320., 240.}; //intrinsic camera parameters
 
@@ -71,9 +71,12 @@ void followObjectProcess(){
   pcl->calc_X_from_parent();
 
 
-    arr q_real = B.get_q();
-    if(q_real.N==C.getJointStateDimension())
-      C.setJointState(q_real);
+  arr q_real = B.get_q();
+  if(q_real.N==C.getJointStateDimension())
+    C.setJointState(q_real);
+
+  arr q_zero = q_real*0.;
+  //B.send_q(q_zero);
 
   for(uint i=0;i<10000;i++){
     _rgb.waitForNextRevision();
@@ -94,11 +97,12 @@ void followObjectProcess(){
       cv::Mat depth = CV(_depth.get());
 
       if(rgb.total()>0 && depth.total()>0){
-        cv::imshow("rgb", rgb);
-
         
-        Circle circle = vision.detectionProcess(rgb);
 
+
+        Circle circle = vision.detectionProcess(rgb);
+        float d_med = vision.medianCircle(depth,circle.x,circle.y,circle.r);
+        cout << d_med << endl;
         float d = depth.at<float>(circle.y,circle.x);
         //cout << "Test" << endl;
         
@@ -124,18 +128,16 @@ void followObjectProcess(){
         
         C.watch(false);
         
-         //white=2meters
-        //cout << C.getFrameByName("marker")->getPosition() << endl;
-        //cout << C.getFrameByName("marker")->set
+        /*
         arr qfin =C.getJointState();
         qfin = kinematics.updatePosition(pt,&qfin,C.getJointState(),marker);
-        //cout << "Test" << endl;
-        //cout << "Joint states: " << qfin << endl;
         C.setJointState(qfin);
         C.getFrameByName("ball")->setPosition(pt);
-        //C.watch(true);
-        //cv::imshow("depth", 0.5*depth); //white=2meters
-        //cv::waitKey(1);
+        //B.send_q(qfin);
+
+        //cv::imshow("depth", 0.5*depth); //white=2meters*/
+        cv::imshow("rgb", rgb);
+        cv::waitKey(1);
       }
     }
   }
