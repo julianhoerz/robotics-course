@@ -229,7 +229,6 @@ void graspObject2(){
   K.setJointState(q);
   rai::wait();
 
-  
 
   arr y_final = {0.8,.0,1.};
   
@@ -239,6 +238,7 @@ void graspObject2(){
   // Orientation of arm
   arr vec_start, vec_target;
   arr vec_final = {-1.,0.,0.};
+
 
   // Position of arm 
   arr pos_start;
