@@ -155,15 +155,48 @@ class RobotVision{
         cv::Mat mask(cv::Size(radius*2,radius*2), CV_8U, cv::Scalar(0));
         cv::circle(mask, cv::Point(radius,radius), radius, cv::Scalar(255), -1);
 
+        if((x - radius) < 0 || 
+            (y - radius) < 0 ||  
+            (x + radius) > depth.cols || 
+            (y + radius) > depth.rows){
+              //cout << "Skipping... big circle" << endl;
+            return -1.;
+        }
+
         //extract region from depthimage
         cv::Rect region(x-radius,y-radius,radius*2,radius*2);
         cv::Mat roi(depth, region);
+        cv::Mat mask2 = cv::Mat(roi == roi);
 
-        cv::Mat buff2_image;
-        //
-        cv::bitwise_and(roi, roi, buff2_image, mask);
-        cout << "Typical mean: " << cv::mean(mask)[0] - cv::mean(buff2_image)[0] << endl;
-        return 0.1f;
+        cv::Mat circle;
+        cv::bitwise_and(mask, mask2, mask, cv::Mat());
+
+        cv::imshow("mask: ", mask);
+        cv::imshow("roi: ", roi);
+        
+        double m = (mask.rows*mask.cols) / 2;
+        int bin = 0;
+        double med = -1.0;
+
+        int histSize = 256;
+        float range[] = { 0, 256 };
+        const float* histRange = { range };
+        bool uniform = true;
+        bool accumulate = false;
+        cv::Mat hist;
+        
+        cv::calcHist( &roi, 1, 0, mask, hist, 1, &histSize, &histRange, uniform, accumulate );
+        
+        for ( int i = 0; i < histSize && med < 0.0; ++i )
+        {
+            bin += cvRound( hist.at< float >( i ) );
+            if ( bin > m && med < 0.0 ){
+                med = i;
+                break;
+            }
+        }
+
+        return med;
 
     }
 
