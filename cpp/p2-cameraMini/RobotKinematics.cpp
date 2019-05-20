@@ -26,18 +26,11 @@ class RobotKinematics{
 
 
 
-    arr updatePosition(arr pos,arr *qfin, arr js/*rai::KinematicWorld C*/,rai::Frame* marker){
+    arr updatePosition(arr pos,arr *qfin, arr js){
         arr q,W,y,J,Phi,PhiJ;
         rai::KinematicWorld K;
         K.addFile("model.g");
         K.setJointState(js);
-        //rai::KinematicWorld K(C);
-        /*
-        arr q_real = B.get_q();
-        if(q_real.N==K.getJointStateDimension()){
-            K.setJointState(q_real);
-            q = q_real;
-        }*/
 
 
 
@@ -68,6 +61,8 @@ class RobotKinematics{
 
         //cout << "test" << endl;
 
+        arr q_home = {0.0333641 ,0.078233, -0.082068, -0.998238, -0.998238 ,1.16774, -1.16698, 1.94164, 1.94164, -0.672267, 0.6715, 1.0178, 1.01856, 0.498927, -0.49816, 0, 0 };
+
         K.addObject("myobj", rai::ST_capsule, {.2, .05}, {1., 1., 0.}, -1., 0, pos);
         
         for(int i=1; i<steps; i++){
@@ -80,6 +75,12 @@ class RobotKinematics{
             K.evalFeature(y,J,FS_positionDiff,{"baxterR","myobj"});
             Phi.append(y/30.);
             PhiJ.append(J/30.);
+
+
+            K.evalFeature(q,J,FS_qItself,{});
+            Phi.append((q-q_home)/500.);
+            PhiJ.append(J/500.);
+
 
             //cout << "Phi: " << Phi << endl;
             //cout << "W: " << W << endl;

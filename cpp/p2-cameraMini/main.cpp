@@ -65,7 +65,7 @@ void followObjectProcess(){
 
     RobotVision vision;
 
-    RosCamera cam(_rgb, _depth, "cameraRosNodeJulian", "/camera/rgb/image_rect_color", "/camera/depth_registered/image_raw");
+    RosCamera cam(_rgb, _depth, "cameraRosNodeMarcToussaint", "/camera/rgb/image_rect_color", "/camera/depth_registered/image_raw");
 
     double f = 1./tan(0.5*60.8*RAI_PI/180.);
     f *= 320.;
@@ -84,7 +84,7 @@ void followObjectProcess(){
 
     rai::Frame *pcl = C.addFrame("pcl", "head");
     rai::Frame *testframe = C.addFrame("testframe","head");
-    rai::Frame *marker = C.addFrame("marker", "testframe");
+    //rai::Frame *marker = C.addFrame("marker", "testframe");
     rai::Frame *ball = C.addFrame("ball","base");
     cv::Point2f point;
 
@@ -103,7 +103,18 @@ void followObjectProcess(){
       C.setJointState(q_real);
 
     arr q_zero = q_real*0.;
+
+    arr prev_pt = {0,0,0};
     //B.send_q(q_zero);
+
+    arr low_pass = {0,0,0,0,0,0,0};
+
+    int lp_cnt = 0;
+
+    int startcnt = 0;
+
+    double dist_mean;
+
 
     for(uint i=0;i<10000;i++){
         _rgb.waitForNextRevision();
@@ -126,9 +137,33 @@ void followObjectProcess(){
             if(rgb.total()>0 && depth.total()>0){
 
                 Circle circle = vision.detectionProcess(rgb);
+                circle.r = circle.r * 0.5;
                 float d_med = vision.medianCircle(depth,circle.x,circle.y,circle.r);
-                cout << d_med << endl;
-                float d = depth.at<float>(circle.y,circle.x);
+                //cout << "mymed: " << d_med << endl;
+                if(d_med < 0){
+                    continue;
+                }
+                float d = d_med;
+
+                if(startcnt >= 7){
+                    if(abs(d-dist_mean/7) > 1.){
+                        continue;
+                    }
+                    else{
+                        dist_mean += d;
+                        dist_mean -= low_pass(lp_cnt);
+                        low_pass(lp_cnt) = d;
+                        lp_cnt = (lp_cnt +1) % 7;
+                    }
+                }
+                else{
+                    low_pass(lp_cnt) = d;
+                    lp_cnt = (lp_cnt +1) % 7;
+                }
+                
+                
+                //cout << "depth" << depth << endl;
+                //float d = depth.at<float>(circle.y,circle.x);
                 //cout << "Test" << endl;
                 
                 //how to convert image to 3D coordinates:
@@ -145,22 +180,30 @@ void followObjectProcess(){
 
                 //float d = medianCircle(depth,point,radius);
                 cout << pt << endl;
+                cout << "Distance: " << ~(pt-prev_pt)*(pt-prev_pt) << endl;
+                if((~(pt-prev_pt)*(pt-prev_pt))(0) > 1.){
+                    prev_pt = pt;
+                    continue;
+                }
+
+                prev_pt = pt;
+
                 //C.gl().dataLock.lock(RAI_HERE);
-                marker->setPosition(pt);
+                //marker->setPosition(pt);
                 //marker->X.applyOnPoint(pt);
                 //C.gl().dataLock.unlock();
                 ball->setPosition(pt);
                 
                 C.watch(false);
                 
-                /*
+                
                 arr qfin =C.getJointState();
-                qfin = kinematics.updatePosition(pt,&qfin,C.getJointState(),marker);
+                qfin = kinematics.updatePosition(pt,&qfin,C.getJointState());
                 C.setJointState(qfin);
                 C.getFrameByName("ball")->setPosition(pt);
                 //B.send_q(qfin);
 
-                //cv::imshow("depth", 0.5*depth); //white=2meters*/
+                //cv::imshow("depth", 0.5*depth); //white=2meters
                 cv::imshow("rgb", rgb);
                 cv::waitKey(1);
             }
@@ -168,12 +211,34 @@ void followObjectProcess(){
     }
 }
 
+void home(){
+    arr q_home1 = {-0.103544, -0.704864, 0.490107, -0.151481, -0.265379, 1.57693, -1.27666, 1.81508, 1.26323, -0.75817, 0.33901, 0.985583, 1.32958, -0.903515, -0.102393, 0 ,0 };
+    arr q_home2 = {0.0333641 ,0.078233, -0.082068, -0.998238, -0.998238 ,1.16774, -1.16698, 1.94164, 1.94164, -0.672267, 0.6715, 1.0178, 1.01856, 0.498927, -0.49816, 0, 0 };
+    rai::KinematicWorld C;
+    C.addFile("../../rai-robotModels/baxter/baxter.g");
+    BaxterInterface B(true);
+    arr q = B.get_q();
+
+    for(uint i=0;i<100;i++){
+        rai::wait(.1);
+        B.send_q(q_home1);
+        C.setJointState(B.get_q());
+        C.watch(false);
+    }
+    C.watch(true);
+}
+
 
 int main(int argc,char **argv){
     rai::initCmdLine(argc,argv);
+    home();
+   /* switch(rai::getParameter<int>("home",4)){
+    case 0:  home();  break;
+    default:  followObjectProcess();  break;
+  }*/
 
     //followObjectProcess();
-    testFilter();
+    //testFilter();
 
     return 0;
 }

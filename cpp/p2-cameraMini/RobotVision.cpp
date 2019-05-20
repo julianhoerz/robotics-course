@@ -155,6 +155,47 @@ class RobotVision{
         cv::Mat mask(cv::Size(radius*2,radius*2), CV_8U, cv::Scalar(0));
         cv::circle(mask, cv::Point(radius,radius), radius, cv::Scalar(255), -1);
 
+
+        //extract region from depthimage
+        
+        int x_start = 0;
+        int y_start = 0;
+        int x_length = 0;
+        int y_length = 0;
+        if(x-radius < 0){
+            x_start = 0;
+            x_length += x;
+        }
+        else{
+            x_start = x-radius;
+            x_length += radius;
+        }
+
+        if(y-radius < 0){
+            y_start = 0;
+            y_length += y;
+        }
+        else{
+            y_start = y-radius;
+            y_length += radius;
+        }
+
+
+        if((x + radius) > depth.cols){
+            x_length += depth.cols - x;
+        }
+        else{
+            x_length += radius;
+        }
+
+        if((y + radius) > depth.rows){
+            y_length += depth.rows - y;
+        }
+        else{
+            y_length += radius;
+        }
+
+
         if((x - radius) < 0 || 
             (y - radius) < 0 ||  
             (x + radius) > depth.cols || 
@@ -163,16 +204,17 @@ class RobotVision{
             return -1.;
         }
 
-        //extract region from depthimage
-        cv::Rect region(x-radius,y-radius,radius*2,radius*2);
+        cv::Rect region(x - radius,y - radius,2*radius,2*radius);
         cv::Mat roi(depth, region);
         cv::Mat mask2 = cv::Mat(roi == roi);
+
+        roi = roi*128.;
 
         cv::Mat circle;
         cv::bitwise_and(mask, mask2, mask, cv::Mat());
 
-        cv::imshow("mask: ", mask);
-        cv::imshow("roi: ", roi);
+        //cv::imshow("mask: ", mask);
+        //cv::imshow("roi: ", roi);
         
         double m = (mask.rows*mask.cols) / 2;
         int bin = 0;
@@ -195,6 +237,8 @@ class RobotVision{
                 break;
             }
         }
+
+        med = med/128.;
 
         return med;
 

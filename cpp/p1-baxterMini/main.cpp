@@ -8,21 +8,32 @@ void minimal_use(){
   arr q0 = C.getJointState();
 
   BaxterInterface B(true);
-  B.send_q(q0);
+  //B.send_q(q0);
 
-  for(uint i=0;i<10;i++){
+  for(uint i=0;i<1;i++){
     rai::wait(.1);
-    cout <<B.get_q() <<endl;
-    cout <<B.get_qdot() <<endl;
-    cout <<B.get_u() <<endl;
+    cout <<"joints: "<<B.get_q() <<endl;
+   // cout <<B.get_qdot() <<endl;
+    //cout <<B.get_u() <<endl;
   }
   C.watch(true);
 
   arr q = q0;
   q = 0.;
   C.setJointState(q);
-  B.send_q(q);
+  //B.send_q(q);
   C.watch(true);
+}
+
+
+void printJointStates(){
+    rai::KinematicWorld C;
+    C.addFile("../../rai-robotModels/baxter/baxter.g");
+    BaxterInterface B(true);
+    arr q = B.get_q();
+    cout << "Joint State: "<< q << endl;
+    C.setJointState(q);
+    C.watch(true);
 }
 
 
@@ -338,6 +349,8 @@ int main(int argc,char **argv){
 
   //minimal_use();
 
+  printJointStates();
+
   //spline_use();
 
   //graspObject();
@@ -345,7 +358,7 @@ int main(int argc,char **argv){
   //graspObject1();
 
 
-  graspObject2();
+  //graspObject2();
 
   return 0;
 }
