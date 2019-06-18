@@ -228,7 +228,10 @@ float medianFilter(cv::Mat depth_img) {
     return med;
 }
 
-
+void updateParams(rai::Frame *cameraFrame,arr y_world,int x_im,int y_im,double d){
+    arr cam_pos = cameraFrame->getPosition();
+    arr cam_rot = cameraFrame->getQuaternion();
+}
 
 
 void onlineCalibration(){
@@ -323,7 +326,7 @@ void onlineCalibration(){
         cv::Mat mask = depth(cv::Rect(x_im - (int) radius/2, y_im-(int) radius/2, (int)radius, (int)radius));
         double d = medianFilter(mask);
 
-        
+        updateParams(cameraFrame,y_world,x_im,y_im,d);
         
         if(rgb.total()>0 && depth.total()>0){
             cv::imshow("rgb", rgb);
