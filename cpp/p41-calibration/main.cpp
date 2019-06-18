@@ -250,8 +250,8 @@ void onlineCalibration(){
     // launch robot interface
     RobotOperation B(C);
     B.sync(C);
-    B.move(q_home, {5.});
-    rai::wait();
+    /*B.move(q_home, {5.});
+    rai::wait();*/
 
 
     // Setting up Cameraframe
@@ -326,6 +326,7 @@ void onlineCalibration(){
         cv::Mat mask = depth(cv::Rect(x_im - (int) radius/2, y_im-(int) radius/2, (int)radius, (int)radius));
         double d = medianFilter(mask);
 
+        cout << "updating parameters..." << endl;
         updateParams(cameraFrame,y_world,x_im,y_im,d);
         
         if(rgb.total()>0 && depth.total()>0){
