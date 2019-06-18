@@ -26,6 +26,7 @@
 #endif
 #include "RobotVision.cpp"
 #include "RobotKinematics.cpp"
+#include "game-logic.cpp"
 
 
 void testFilter(){
@@ -118,7 +119,7 @@ void followObjectProcess(){
 
     for(uint i=0;i<10000;i++){
         _rgb.waitForNextRevision();
-
+        C.watch(false);
 
         //cout << "Test" << endl;
 
@@ -138,14 +139,18 @@ void followObjectProcess(){
 
                 Circle circle = vision.detectionProcess(rgb);
                 circle.r = circle.r * 0.5;
+                cout << "x and y:" << circle.x << " , " << circle.y << endl;
+                if(circle.x < 0 || circle.y < 0){
+                    continue;
+                }
                 float d_med = vision.medianCircle(depth,circle.x,circle.y,circle.r);
-                //cout << "mymed: " << d_med << endl;
+                cout << "mymed: " << d_med << endl;
                 if(d_med < 0){
                     continue;
                 }
                 float d = d_med;
 
-                if(startcnt >= 7){
+                /*if(startcnt >= 7){
                     if(abs(d-dist_mean/7) > 1.){
                         continue;
                     }
@@ -159,7 +164,7 @@ void followObjectProcess(){
                 else{
                     low_pass(lp_cnt) = d;
                     lp_cnt = (lp_cnt +1) % 7;
-                }
+                }*/
                 
                 
                 //cout << "depth" << depth << endl;
@@ -194,14 +199,14 @@ void followObjectProcess(){
                 //C.gl().dataLock.unlock();
                 ball->setPosition(pt);
                 
-                C.watch(false);
+
                 
                 
                 arr qfin =C.getJointState();
                 qfin = kinematics.updatePosition(pt,&qfin,C.getJointState());
                 C.setJointState(qfin);
                 C.getFrameByName("ball")->setPosition(pt);
-                //B.send_q(qfin);
+                B.send_q(qfin);
 
                 //cv::imshow("depth", 0.5*depth); //white=2meters
                 cv::imshow("rgb", rgb);
@@ -211,31 +216,71 @@ void followObjectProcess(){
     }
 }
 
-void home(){
-    arr q_home1 = {-0.103544, -0.704864, 0.490107, -0.151481, -0.265379, 1.57693, -1.27666, 1.81508, 1.26323, -0.75817, 0.33901, 0.985583, 1.32958, -0.903515, -0.102393, 0 ,0 };
-    arr q_home2 = {0.0333641 ,0.078233, -0.082068, -0.998238, -0.998238 ,1.16774, -1.16698, 1.94164, 1.94164, -0.672267, 0.6715, 1.0178, 1.01856, 0.498927, -0.49816, 0, 0 };
+void home(int select){
+    arr q_home;
+    if(select == 0){
+        q_home = {-0.103544, -0.704864, 0.490107, -0.151481, -0.265379, 1.57693, -1.27666, 1.81508, 1.26323, -0.75817, 0.33901, 0.985583, 1.32958, -0.903515, -0.102393, 0 ,0 };
+    }
+    else{
+        q_home = {0.0333641 ,0.078233, -0.082068, -0.998238, -0.998238 ,1.16774, -1.16698, 1.94164, 1.94164, -0.672267, 0.6715, 1.0178, 1.01856, 0.498927, -0.49816, 0, 0 };
+    }
+
     rai::KinematicWorld C;
     C.addFile("../../rai-robotModels/baxter/baxter.g");
     BaxterInterface B(true);
     arr q = B.get_q();
-
-    for(uint i=0;i<100;i++){
+    while((~(q-q_home)*(q-q_home))(0) > 0.01){
+        //cout << "scalar prod:" << (~(q-q_home1)*(q-q_home1))(0) <<endl;
         rai::wait(.1);
-        B.send_q(q_home1);
-        C.setJointState(B.get_q());
+        B.send_q(q_home);
+        q = B.get_q();
+        C.setJointState(q);
         C.watch(false);
     }
-    C.watch(true);
+}
+
+void ticktacktoe(){
+    int step = 1;
+    arr state = {   0.,0.,0.,
+                    0.,0.,0.,
+                    0.,0.,0.};
+    arr buff = state;
+
+    int input;
+
+    while (step != -1){
+        step = getNextMove(state);
+        cout << "step: " << step << endl;
+        state(step) = 1.;
+        buff = state;
+        cout << "state:" << endl << buff.reshape({3,3}) << endl;
+        std::cin >> input;
+        state(input) = 2.;
+        buff = state;
+        cout << "state:" << endl << buff.reshape({3,3}) << endl;
+    }
+    cout << "game over" << endl;
 }
 
 
 int main(int argc,char **argv){
     rai::initCmdLine(argc,argv);
-    home();
-   /* switch(rai::getParameter<int>("home",4)){
-    case 0:  home();  break;
-    default:  followObjectProcess();  break;
-  }*/
+    ticktacktoe();
+
+    //home();
+    /*
+    switch(rai::getParameter<int>("home",4)){
+        case 0:  home(0);  break;
+        case 1:  home(1);  break;
+        default:  break;
+    } 
+
+
+    switch(rai::getParameter<int>("follow",4)){
+        case 0:  followObjectProcess();  break;
+        default:  break;
+    } */
+
 
     //followObjectProcess();
     //testFilter();
