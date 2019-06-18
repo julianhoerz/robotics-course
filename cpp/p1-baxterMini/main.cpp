@@ -13,7 +13,6 @@ void minimal_use(){
 
   //launch the interface
   BaxterInterface B(true);
-<<<<<<< HEAD
   //B.send_q(q0);
 
   for(uint i=0;i<1;i++){
@@ -21,28 +20,12 @@ void minimal_use(){
     cout <<"joints: "<<B.get_q() <<endl;
    // cout <<B.get_qdot() <<endl;
     //cout <<B.get_u() <<endl;
-=======
-
-  for(uint i=0;i<40;i++){
-    rai::wait(.1);
-    B.send_q(q_home); //repeatedly send q_home as reference -> moves
-    cout <<B.get_q() <<endl;
-    cout <<B.get_qdot() <<endl;
-    cout <<B.get_u() <<endl;
->>>>>>> 57969502b0c07ed0fb3e1bf7c3a27d6e79136b07
   }
 
-<<<<<<< HEAD
   arr q = q0;
   q = 0.;
   C.setJointState(q);
   //B.send_q(q);
-=======
-  //just once send q_zero as reference -> will hardly move
-  B.send_q(q_zero);
-
-  C.setJointState(q_zero);
->>>>>>> 57969502b0c07ed0fb3e1bf7c3a27d6e79136b07
   C.watch(true);
 }
 
@@ -70,15 +53,8 @@ void spline_use(){
   //launch the interface
   RobotOperation B(C);
   cout <<"joint names: " <<B.getJointNames() <<endl;
-<<<<<<< HEAD
   B.move({q_zero,q_home}, {5.,10.},true);
   B.move({q_zero}, {15.},true); //appends
-=======
-  B.sendToReal(true);
-
-  //spline motion of the reference
-  B.move({q_zero}, {10.});
->>>>>>> 57969502b0c07ed0fb3e1bf7c3a27d6e79136b07
   B.wait();
 
   //output states
