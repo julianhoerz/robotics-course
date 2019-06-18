@@ -265,7 +265,7 @@ void ticktacktoe(){
 }
 
 //===========================================================================
-
+/*
 void usingCameraSimulation(){
   //load a configuration
   rai::KinematicWorld C;
@@ -313,7 +313,7 @@ void usingCameraSimulation(){
   //...and display it
   C.watch(true);
 }
-
+*/
 //===========================================================================
 
 int main(int argc,char **argv){
