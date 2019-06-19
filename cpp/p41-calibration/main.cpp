@@ -73,9 +73,9 @@ void Vision::onlinetracking(cv::Mat input_img){
 
 
 
-arr cameraPointToImgCoords(arr pt, arr Fxypxy){
-    pt(0) = pt(0)*Fxypxy(0) / -pt(2) + Fxypxy(2);
-    pt(1) = pt(1)*Fxypxy(1) / pt(2) + Fxypxy(3);
+arr cameraPointToImgCoords(arr pt, arr mu){
+    pt(0) = pt(0)*mu(6) / -pt(2) + mu(8);
+    pt(1) = pt(1)*mu(7) / pt(2) + mu(9);
     pt(2) = -pt(2);
 
     return pt;
@@ -228,9 +228,122 @@ float medianFilter(cv::Mat depth_img) {
     return med;
 }
 
-void updateParams(rai::Frame *cameraFrame,arr y_world,int x_im,int y_im,double d){
-    arr cam_pos = cameraFrame->getPosition();
-    arr cam_rot = cameraFrame->getQuaternion();
+arr updateParams(rai::Frame *cameraFrame,arr x_re,int x_im,int y_im,double d, arr mu){
+    double lmda = 1.;
+    double alpha = 0.01;
+    arr mu_0 = {-0.0499056, 0.231561, 1.7645, 0.4807536, -0.0020578, 0.0426301, 539.637, 540.941, 317.533, 260.024 };
+    double phi1 = mu(3);
+    double phi2 = mu(4);
+    double phi3 = mu(5);
+    double fx = mu(6);
+    double fy = mu(7);
+    double px = mu(8);
+    double py = mu(9);
+    double s1 = sin(phi1);
+    double c1 = cos(phi1);
+    double s2 = sin(phi2);
+    double c2 = cos(phi2);
+    double s3 = sin(phi3);
+    double c3 = cos(phi3);
+
+    arr buff = {d*(x_im-mu(8))/mu(6), -d*(y_im-mu(9))/mu(7), -d, 1};
+    buff = cameraFrame->X.getAffineMatrix() * buff;
+    arr x_ex = {buff(0), buff(1), buff(2)};
+    cout << "x_ex: " << x_ex << endl;
+
+
+    arr dx_exdmu;
+    dx_exdmu.append({1,0,0}); //dxdt1
+    dx_exdmu.append({0,1,0}); //dxdt2
+    dx_exdmu.append({0,0,1}); //dxdt3
+    dx_exdmu.reshape({3,3});
+
+
+
+
+    double buff1, buff2, buff3;
+    buff1 = 0;
+    buff2 = (c3*c1*s2 - s1*s3)*d*(x_im-px)/fx + (s1*c3 + c1*s2*s3)*d*(y_im - py)/fy + c2*c1*d;
+    buff3 = (c1*s3 + s1*c3*s2)*d*(x_im-px)/fx - (c3*c1 - s1*s2*s3)*d*(y_im - py)/fy + s1*c2*d;
+
+    dx_exdmu.append({buff1,buff2,buff3}); //dxdphi1
+
+
+    buff1 = -s2*c3*d*(x_im-px)/fx - s2*s3*d*(y_im-py)/fy - c2*d;
+    buff2 = c3*s1*c2*d*(x_im-px)/fx + s1*c2*s3*d*(y_im - py)/fy - s2*s1*d;
+    buff3 = -c1*c3*c2*d*(x_im-px)/fx - c1*c2*s3*d*(y_im - py)/fy + c1*s2*d;
+
+    dx_exdmu.append({buff1,buff2,buff3}); //dxdphi2
+
+    buff1 = -c2*s3*d*(x_im-px)/fx + c2*c3*d*(y_im-py)/fy;
+    buff2 = (c1*c3 - s3*s1*s2)*d*(x_im-px)/fx + (s1*s2*c3 + c1*s3)*d*(y_im-py)/fy;
+    buff3 = (s1*c3 + c1*s3*s2)*d*(x_im-px)/fx + (s3*s1-c1*s2*c3)*d*(y_im-py)/fy;
+
+    dx_exdmu.append({buff1,buff2,buff3}); //dxdphi3
+
+    arr dxdfx = {
+        -c2*c3*d*(x_im - px)/(fx*fx),
+        -(c1*s3 + c3*s1*s2)*d*(x_im - px)/(fx*fx),
+        -(s1*s3 - c1*c3*s2)*d*(x_im - px)/(fx*fx)
+    };
+    dx_exdmu.append(dxdfx); //dxdfx
+
+    arr dxdfy = {
+        -c2*s3*d*(y_im - py)/(fy*fy),
+        -(s1*s2*s3 - c1*c3)*d*(y_im - py)/(fy*fy),
+        (c3*s1 + c1*s2*s3)*d*(y_im - py)/(fy*fy)
+    };
+    dx_exdmu.append(dxdfy); //dxdfy
+
+    arr dxdpx = {
+        -c2*c3*d/fx,
+        -(c1*s3 + c3*s1*s2)*d/fx,
+        -(s1*s3 - c1*c3*s2)*d/fx
+    };
+    dx_exdmu.append(dxdpx); //dxdpx
+
+    arr dxdpy = {
+        -c2*s3*d/fy,
+        -(s1*s2*s3 - c1*c3)*d/fy,
+        (c3*s1 + c1*s2*s3)*d/fy
+    };
+    dx_exdmu.append(dxdpy); //dxdpy
+
+    dx_exdmu = ~dx_exdmu;
+    //cout << "dx_exdmu: " << endl << dx_exdmu << endl;
+
+    arr dLdmu = 2.*(~(x_ex - x_re)*dx_exdmu + lmda*~(mu-mu_0));
+
+    cout << "grad: " << dLdmu << endl;
+    cout << "sumofsqr: " << sumOfSqr(dLdmu) << endl;
+    
+    mu = mu - alpha*dLdmu;
+    return mu;
+}
+
+
+arr composeAffineMatrix(arr mu){
+    double t1 = mu(0);
+    double t2 = mu(1);
+    double t3 = mu(2);
+    double phi1 = mu(3);
+    double phi2 = mu(4);
+    double phi3 = mu(5);
+    double s1 = sin(phi1);
+    double c1 = cos(phi1);
+    double s2 = sin(phi2);
+    double c2 = cos(phi2);
+    double s3 = sin(phi3);
+    double c3 = cos(phi3);
+
+    arr M = {
+        c2*c3               , -c2*s3            ,   s2      , t1,
+        c1*s3 + c3*s1*s2    , c1*c3 - s1*s2*s3  ,   -c2*s1  , t2,
+        s1*s3 - c1*c3*s2    , c3*s1 + c1*s2*s3  ,   c1*c2   , t3,
+        0                   , 0                 ,   0       , 1
+    };
+    M.reshape({4,4});
+    return M;
 }
 
 
@@ -241,26 +354,48 @@ void onlineCalibration(){
     arr q_home = C.getJointState();
     arr Wmetric = diag(1., C.getJointStateDimension());
 
+
+
     // launch camera
     Var<byteA> _rgb;
     Var<floatA> _depth;
-    RosCamera cam(_rgb, _depth, "cameraRosNodeJulian", "/camera/rgb/image_raw", "/camera/depth/image_rect");
+    //RosCamera cam(_rgb, _depth, "cameraRosNodeJulian", "/camera/rgb/image_raw", "/camera/depth/image_rect");
 
 
     // launch robot interface
     RobotOperation B(C);
-    B.sync(C);
-    /*B.move(q_home, {5.});
-    rai::wait();*/
+    //B.sync(C);
 
+
+    arr mu = {-0.0499056, 0.231561, 1.7645, 0.4807536, -0.0020578, 0.0426301, 539.637, 540.941, 317.533, 260.024 };
 
     // Setting up Cameraframe
     rai::Frame *cameraFrame = C.addFrame("pclframe", "head");
-    cameraFrame->calc_X_from_parent();
-    cameraFrame->setPosition({-0.0499056, 0.231561, 1.7645});
-    cameraFrame->setQuaternion({0.971032, 0.237993, -0.00607315, 0.0204557});
-    arr Fxypxy = {539.637, 540.941, 317.533, 260.024};
 
+
+    arr affMat = composeAffineMatrix(mu);
+    cameraFrame->X.setAffineMatrix(affMat.data());
+    /*
+    arr globalpos = {1.,1.,1.};
+
+
+    arr y_cam = globalPointToCameraPoint(globalpos,cameraFrame->X.getInverseAffineMatrix());
+    arr y_img = cameraPointToImgCoords(y_cam,mu);
+    cout << "image coords global pos: " << y_img << endl;
+    arr y_img2 = {y_img(0)+40,y_img(1)+40,y_img(2)};
+    cout << "image coords other: " << y_img2 << endl;
+
+    for(int i = 0 ; i< 10000 ; i ++){
+
+        mu = updateParams(cameraFrame,globalpos,y_img2(0),y_img2(1),y_img2(2),mu);
+        
+
+    }
+    cameraFrame->X.setAffineMatrix(composeAffineMatrix(mu).data());
+    y_cam = globalPointToCameraPoint({1.,1.,1.},cameraFrame->X.getInverseAffineMatrix());
+    y_img = cameraPointToImgCoords(y_cam,mu);
+    cout << "image coords: " << y_img << endl;
+    return;*/
 
     // looping
     while(true){
@@ -278,7 +413,7 @@ void onlineCalibration(){
         C.evalFeature(y_world,J,FS_position,{"calibL"});
 
         arr y_cam = globalPointToCameraPoint(y_world,cameraFrame->X.getInverseAffineMatrix());
-        arr y_img = cameraPointToImgCoords(y_cam,Fxypxy);
+        arr y_img = cameraPointToImgCoords(y_cam,mu);
 
 
         // Return if ball is not within the image
@@ -294,7 +429,7 @@ void onlineCalibration(){
         }
 
 
-        arr res = cameraPointToImgCoords({y_cam(0)+.02,y_cam(1),y_cam(2)},Fxypxy);
+        arr res = cameraPointToImgCoords({y_cam(0)+.02,y_cam(1),y_cam(2)},mu);
         double radius = sqrt(pow(y_img(0)-res(0),2) + pow(y_img(1)-res(1),2));
         Board circle(res,radius);
 
@@ -327,8 +462,9 @@ void onlineCalibration(){
         double d = medianFilter(mask);
 
         cout << "updating parameters..." << endl;
-        updateParams(cameraFrame,y_world,x_im,y_im,d);
-        
+        mu = updateParams(cameraFrame,y_world,x_im,y_im,d,mu);
+        cameraFrame->X.setAffineMatrix(composeAffineMatrix(mu).data());
+
         if(rgb.total()>0 && depth.total()>0){
             cv::imshow("rgb", rgb);
             cv::imshow("depth", 0.5*depth); //white=2meters
